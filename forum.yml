@@ -7,12 +7,10 @@
     - name: Configure remote access
       authorized_key:
         user: root
-        exclusive: true
         key: "{{ item }}"
       loop:
         - 'https://github.com/gwarf.keys'
         - 'https://github.com/enolfc.keys'
-        - 'https://github.com/brucellino.keys'
   roles:
     - {role: dev-sec.ssh-hardening, tags: ssh}
 
@@ -43,13 +41,47 @@
         group: root
         mode: "u=r"
     - name: sort out firewall
-      debug:
-        msg: "TODO"
+      firewalld:
+        service: https
+        permanent: yes
+        state: enabled
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+      firewalld:
+        service: ssh
+        permanent: yes
+        state: enabled
+
+# XXX probably not required if not using pip to build python modules
+- hosts: forum
+  name: Install required packages to build python modules
+  become: true
+  tasks:
+    - name: Install gcc
+      package:
+        name: gcc
+        state: present
+    - name: Install python-devel
+      package:
+        name: python-devel
+        state: present
+
+# XXX probably not required, or at least only the kernel-ml not the built files
+- hosts: forum
+  name: Install a kernel supporting more recent docker drivers
+  become: true
+  roles:
+    - linuxhq.epel
+    - linuxhq.elrepo
 
 - hosts: forum
   name: Deploy !
   become: true
   tags:
     - discourse
+  vars_files:
+    - files/secrets.yml
   roles:
-    - {role: AAROC.discourse-sso, launch: 'False'}
+    - {role: EGI-Foundation.discourse-sso, launch: 'False'}
